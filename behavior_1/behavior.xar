@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8" ?><ChoregrapheProject xmlns="http://www.aldebaran-robotics.com/schema/choregraphe/project.xsd" xar_version="3"><Box name="root" id="-1" localization="8" tooltip="Root box of Choregraphe&apos;s behavior. Highest level possible." x="0" y="0"><bitmap>media/images/box/root.png</bitmap><script language="4"><content><![CDATA[]]></content></script><Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" /><Input name="onStart" type="1" type_size="1" nature="2" inner="0" tooltip="Box behavior starts when a signal is received on this input." id="2" /><Input name="onStop" type="1" type_size="1" nature="3" inner="0" tooltip="Box behavior stops when a signal is received on this input." id="3" /><Output name="onStopped" type="1" type_size="1" nature="1" inner="0" tooltip="Signal sent when box behavior is finished." id="4" /><Output name="output" type="1" type_size="1" nature="2" inner="0" tooltip="" id="5" /><Timeline enable="0"><BehaviorLayer name="behavior_layer1"><BehaviorKeyframe name="keyframe1" index="1"><Diagram><Box name="Show App" id="2" localization="8" tooltip="Loads the application on the tablet, if it exists, and displays the webview.&#x0A;&#x0A;V1.0.0&#x0A;" x="300" y="166"><bitmap>media/images/box/root.png</bitmap><script language="4"><content><![CDATA[
+
+class MyClass(GeneratedClass):
+
+    def __init__(self):
+        GeneratedClass.__init__(self)
+
+    def onLoad(self):
+        self.isRunning = False
+
+    def onUnload(self):
+        self.isRunning = False
+
+    def _getTabletService(self):
+        tabletService = None
+        try:
+            tabletService = self.session().service("ALTabletService")
+        except Exception as e:
+            self.logger.error(e)
+        return tabletService
+
+    def onInput_onStart(self):
+
+
+        if self.isRunning:
+            return # already running, nothing to do
+        self.isRunning = True
+        # We create TabletService here in order to avoid
+        # problems with connections and disconnections of the tablet during the life of the application
+        tabletService = self._getTabletService()
+        appName = self.packageUid()
+        state = False
+        if appName:
+            if tabletService:
+                if tabletService.loadApplication(appName):
+                    self.logger.info("Successfully set application: %s" % appName)
+                    tabletService.showWebview()
+                    state = True
+                else:
+                    self.logger.warning("Got tablet service, but failed to set application: %s" % appName)
+            else:
+                self.logger.warning("Couldn't find tablet service, so can't set application: %s" % appName)
+        if state:
+            self.onSuccess()
+        else:
+            self.onFailure()]]></content></script><Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" /><Input name="onStart" type="1" type_size="1" nature="2" inner="0" tooltip="Box behavior starts when a signal is received on this input." id="2" /><Output name="onSuccess" type="1" type_size="1" nature="1" inner="0" tooltip="Signal sent when box behavior is finished successfully." id="3" /><Output name="onFailure" type="1" type_size="1" nature="1" inner="0" tooltip="Signal sent when box behavior is finished unsuccessfully." id="4" /></Box><Box name="Take Picture" id="3" localization="8" tooltip="Take a picture with one of the cameras camera and store it in his memory in ~/recordings/cameras. The image format is JPG.&#x0A;&#x0A;V1.1.0&#x0A;" x="436" y="524"><bitmap>media/images/box/interaction/picture.png</bitmap><script language="4"><content><![CDATA[import time
+import httplib
+import urllib
+import base64
+import simplejson as json
+
+class MyClass(GeneratedClass):
+    def __init__(self):
+        GeneratedClass.__init__(self, False)
+        self.resolutionMap = {
+            '160 x 120': 0,
+            '320 x 240': 1,
+            '640 x 480': 2,
+            '1280 x 960': 3
+        }
+        self.cameraMap = {
+            'Top': 0,
+            'Bottom': 1
+        }
+
+        self.recordFolder = "/home/nao/.local/share/PackageManager/apps/.lastUploadedChoregrapheBehavior/html/"
+
+    def onLoad(self):
+        self.bIsRunning = False
+        try:
+            self.photoCapture = ALProxy( "ALPhotoCapture" )
+        except Exception as e:
+            self.photoCapture = None
+            self.logger.error(e)
+
+    def onUnload(self):
+        pass
+
+    def onInput_onStart(self):
+        if( self.bIsRunning ):
+            return
+        self.bIsRunning = True
+        resolution = self.resolutionMap[self.getParameter("Resolution")]
+        cameraID = self.cameraMap[self.getParameter("Camera")]
+        fileName = self.getParameter("File Name")
+        if self.photoCapture:
+            self.photoCapture.setResolution(resolution)
+            self.photoCapture.setCameraID(cameraID)
+            self.photoCapture.setPictureFormat("jpg")
+            self.photoCapture.takePicture( self.recordFolder, fileName )
+        self.bIsRunning = False
+        self.onStopped()
+
+        img_path = self.recordFolder+'image2.jpg'
+        headers = {
+            'Content-Type': 'application/octet-stream',
+            'Ocp-Apim-Subscription-Key': '696db1242eef4a50ba74eb6e7ccc0736'
+        }
+        params = urllib.urlencode({
+            #Request parameters visualFeatures = Categories, Tags, Description & language = en
+            'visualFeatures': 'Categories,Tags,Description',
+            'language': 'en'
+        })
+        commonMarterialName = ["fruit", "vegetable", "drink"]
+
+        try:
+            conn = httplib.HTTPSConnection('westus.api.cognitive.microsoft.com')
+            conn.request("POST", "/vision/v1.0/analyze?%s" % params, open(img_path, 'rb'), headers)
+            response = conn.getresponse()
+            data = response.read()
+            result = json.loads(data)
+            if (result):
+                tags = result['tags']
+                for name in commonMarterialName:
+                    for tag in tags:
+                        print name, tag['name']
+                        if (name == tag['name']):
+                            tags.remove(tag)
+
+                #print "Object:", result['tags'][0]['name']
+                #print "Confidence :", result['tags'][0]['confidence']
+
+                f = open(self.recordFolder+'output.txt', 'ab')
+                f.write(result['tags'][0]['name'] + "\r\n")
+                f.write(result['description']['captions'][0]['text'] + "\r\n")
+                f.close()
+            conn.close()# self.onStopped()
+        except Exception as e:
+            print "Exception:", e]]></content></script><Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" /><Input name="onStart" type="1" type_size="1" nature="2" inner="0" tooltip="Box behavior starts when a signal is received on this input." id="2" /><Output name="onStopped" type="1" type_size="1" nature="1" inner="0" tooltip="Signal sent when box behavior is finished." id="3" /><Parameter name="Resolution" inherits_from_parent="0" content_type="3" value="640 x 480" default_value="640 x 480" custom_choice="0" tooltip="Image resolution." id="4"><Choice value="160 x 120" /><Choice value="320 x 240" /><Choice value="640 x 480" /><Choice value="1280 x 960" /></Parameter><Parameter name="File Name" inherits_from_parent="0" content_type="3" value="image2.jpg" default_value="image" custom_choice="0" tooltip="Name of the file without its extension." id="5" /><Parameter name="Camera" inherits_from_parent="0" content_type="3" value="Top" default_value="Top" custom_choice="0" tooltip="Enables to select the camera (Top or Bottom) that will take the picture." id="6"><Choice value="Top" /><Choice value="Bottom" /></Parameter></Box><Link inputowner="2" indexofinput="2" outputowner="0" indexofoutput="2" /><Link inputowner="0" indexofinput="4" outputowner="2" indexofoutput="3" /><Link inputowner="3" indexofinput="2" outputowner="0" indexofoutput="2" /><Link inputowner="0" indexofinput="4" outputowner="3" indexofoutput="3" /></Diagram></BehaviorKeyframe></BehaviorLayer></Timeline></Box></ChoregrapheProject>

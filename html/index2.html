@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+
+<html>
+<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+<meta content="utf-8" http-equiv="encoding">
+<head>
+<script src="http://vue-typejs-xuanbao2008.c9users.io/jquery.min.js"></script>
+
+</head>
+<body onload="run();">
+<img src="http://198.18.0.1/apps/.lastUploadedChoregrapheBehavior/image2.jpg" id="userImg" width="500px" height="500px">
+
+List material contain contains: </br>
+<textarea rows="10" cols = "80" id="detect-result"></textarea>
+<script>
+function getBase64Image(img) {
+    // Create an empty canvas element
+    var canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+
+    // Copy the image contents to the canvas
+    var ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+
+    // Get the data-URL formatted image
+    // Firefox supports PNG and JPEG. You could check img.src to
+    // guess the original format, but be aware the using "image/jpg"
+    // will re-encode the image.
+    var dataURL = canvas.toDataURL("image/png");
+
+    return dataURL;
+}
+
+//list materials that has been detected.
+var listMarterial = [];
+//ignore tags that in commons name
+var commonMarterialName = ["fruit", "vegetable", "drink", "food"];
+
+function detectImageFromFile(){
+    var image = $('#image-file')[0].files[0];
+	//processVisionResponse(detectImage(image));
+	detectImage(image);
+}
+function displayAllMarterial(){
+	$("#detect-result").val('');
+	
+	for (i = 0; i < listMarterial.length; i++) {
+		//$("#detect-result").val(listMarterial[i]);
+		document.getElementById("detect-result").value += listMarterial[i] + "\n";
+	}
+	console.log("length: " +listMarterial.length);
+}
+//reset data
+function resetData(){
+	$("textarea#detect-result").val('');
+	listMarterial =[];
+}
+
+function detectImage(image){
+	//if (window.File && window.FileReader && window.FileList && window.Blob) {
+	  // Great success! All the File APIs are supported.
+	//} else {
+	//  alert('The File APIs are not fully supported in this browser.');
+	//}
+	//var result={};
+	
+	console.log('begin to detect image!');
+	
+        $.ajax({
+            url: "https://westus.api.cognitive.microsoft.com/vision/v1.0/analyze?visualFeatures=Categories,Tags,Description&language=en",
+			processData :false,
+            beforeSend: function(xhrObj){
+                // Request headers
+                xhrObj.setRequestHeader("Content-Type","application/octet-stream");//octet-stream
+                xhrObj.setRequestHeader("Ocp-Apim-Subscription-Key","696db1242eef4a50ba74eb6e7ccc0736");
+            },
+            type: "POST",
+			//dataType: "application/json",
+            // Request body
+            data: image,
+			//data: {'url' : 'http://dreamicus.com/data/apple/apple-04.jpg'},
+			success: function(response) {
+				//console.log(response.tags[0].name +":"+ response.tags[0].confidence);
+				processVisionResponse(response);
+				//return response;
+			}
+        })
+        .done(function() {
+            console.log("success");
+			
+        })
+        .fail(function(error) {
+            console.log("error" + error);
+        });
+		
+	console.log('end of detect image!');
+	//return as a json
+	//return result;
+}
+
+//process Microsoft Cognitive response.
+function processVisionResponse(response){
+	//if detected tag is in common nound, remove it.
+	
+	var valid = 1;
+	for(i = 0; i< response.tags.length; i++){
+		valid = 1;
+		for (j = 0; j < commonMarterialName.length; j++) {
+			//if tag match any common noun, move next
+			console.log(response.tags[i].name +"|" + commonMarterialName[j]);
+			console.log(response.tags[i].name.indexOf(commonMarterialName[j] ));
+			if((response.tags[i].name.indexOf(commonMarterialName[j] )) == 0){
+				valid = 0;
+				
+				continue;
+			}
+		}
+		if(valid == 1){
+			console.log(valid);
+			listMarterial.push(response.tags[i].name);	
+			$("textarea#detect-result").append(response.tags[i].name);
+			console.log(response.tags[i].name +":"+ response.tags[i].confidence);
+			break;
+		}
+	}
+	
+	//$("textarea#detect-result").val('');
+	//for (j = 0; j < listMarterial.length; j++) {
+	//	$("textarea#detect-result").append(listMarterial[i] + "\n");
+	//}
+	displayAllMarterial();
+}
+function run(){
+	// Usage
+	var userImage = document.getElementById('userImg');
+	var imgData= getBase64Image(userImage);
+	//alert(imgData);
+	detectImage(imgData);
+}
+</script>
+</body>
+</html>

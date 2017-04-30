@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, user-scalable=no" />
+	<meta http-equiv="refresh" content="1; url=index2.html" />
+    <title>PepperのJavaScriptサンプル</title>
+	<style>
+		body { 
+			background: url(''); 
+			width: 100%;
+			height: 100%;
+			background-size: 1750px 1100px;
+			background-repeat: no-repeat;
+		}
+	</style>
+    <script src="libs/qimessaging/1.0/jquery.min.js"></script>
+    <script src="libs/qimessaging/1.0/qimessaging.js"></script>
+    
+	<script>
+	
+
+	
+    var session = new QiSession();
+    session.socket().on('connect', function () {
+	
+	
+		session.service("ALTextToSpeech").done(function (tts) {
+        tts.say("あーひーひー");
+    }).fail(function (error) {
+        console.log("An error occurred:", error);
+    });
+	
+    session.service("ALMotion").done(function (motion) {
+	    motion.openHand('RHand');
+		motion.openHand('LHand');
+	    motion.changeAngles('HeadYaw', 1, 0.25);
+		motion.setStiffnesses("Head", 1);
+		motion.goToPosture("StandInit", 0.5);	
+        var names  = ["HeadYaw", "HeadPitch"];
+        var angles  = [0.4, -0.4];
+        var fractionMaxSpeed  = 1;
+        motion.setAngles(names, angles, fractionMaxSpeed);
+       	
+			
+			
+    }).fail(function (error) {
+        console.log("An error occurred:", error);
+    });
+	
+	
+	session.service("ALPhotoCapture").done(function (photo) {
+	    var folderPath = "/home/nao/.local/share/PackageManager/apps/.lastUploadedChoregrapheBehavior/html";
+		var fileName = "image2.jpg";
+        photo.takePicture(folderPath, fileName);
+    }).fail(function (error) {
+        console.log("An error occurred:", error);
+    });
+	
+    
+
+	
+	
+}).on('disconnect', function () {
+    console.log('QiSession disconnected!');
+});
+
+    
+
+</script>
+</head>
+<body>
+
+    <!---
+    <input type="text" id="ip" value="169.254.94.106"></input>
+	Change <input type="text" id="change" value="0.75"></input>
+	
+    <button type="button" id="test-btn">テスト</button>
+	<button type="button" id="headL-btn">substract</button>
+	<button type="button" id="headR-btn">addition</button>
+	<button type="button" id="reset-btn">Reset</button>
+	
+	--->
+	<div id="test"></div>
+	<a href="output.txt">output</a>
+	
+
+</body>
+</html>
